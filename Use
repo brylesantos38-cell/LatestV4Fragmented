@@ -1,0 +1,752 @@
+-- [[
+--  _____   _                    _           _       _             
+-- |_   _| | |__     ___        | |   __ _  | |__   (_)  ___   ___ 
+--   | |   | '_ \   / _ \    _  | |  / _` | | '_ \  | | / __| / __|
+--   | |   | | | | |  __/   | |_| | | (_| | | |_) | | | \__ \ \__ \
+--   |_|   |_| |_|  \___|    \___/   \__,_| |_.__/  |_| |___/ |___/
+--                                                                 
+-- ]]--
+
+-- Made by The Jabiss
+-- Credits to Noah, Nautic, ThatOneGuyRuben, Ame, Squid, CrowWithAGun and Vynixu
+-- Entities by Eoyoustme & Thanhphok
+-- REMASTERED / OPTIMIZED RECREATION (COMPLETELY INTEGRATED MASSIVE UPDATE)
+
+------------------------------------------------------------------------
+-- ⚙️ SERVICES & VARIABLES
+------------------------------------------------------------------------
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local lp = Players.LocalPlayer
+local p_Gui = lp:WaitForChild("PlayerGui")
+local m_UI = p_Gui:WaitForChild("MainUI")
+local init = m_UI:WaitForChild("Initiator")
+local G_Mod = require(init:WaitForChild("Main_Game"))
+
+-- Updated Entity Repository Connection Endpoints
+local reboundUrl = "https://raw.githubusercontent.com/brylesantos38-cell/Myownreboundregnited/refs/heads/main/ObfuscatedNon"
+local hungeredUrl = "https://raw.githubusercontent.com/brylesantos38-cell/Myownreboundregnited/refs/heads/main/HungeredMyownRegnited"
+local sprintUrl = "https://raw.githubusercontent.com/brylesantos38-cell/Pretty-accurate-fragmented-mode-Sprint-use-it-if-you-must.-/refs/heads/main/Use%20it%20if%20want!"
+
+local currentRoomValue = ReplicatedStorage:WaitForChild("GameData"):WaitForChild("LatestRoom")
+local hasSpawnedRoom30Entities = false
+
+------------------------------------------------------------------------
+-- 🛡️ CORE UTILITY SYSTEMS
+------------------------------------------------------------------------
+local function s_Load(targetUrl)
+    local success, result = pcall(function() return game:HttpGet(targetUrl) end)
+    if success and result and not result:match("404: Not Found") then
+        local run, err = loadstring(result)
+        if run then 
+            task.spawn(run) 
+        else
+            warn("[Fragmented Mode] Error loading script syntax: " .. tostring(err))
+        end
+    else
+        warn("[Fragmented Mode] Failed to fetch URL: " .. tostring(targetUrl))
+    end
+end
+
+local function AddCorner(guiElement, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 6)
+    corner.Parent = guiElement
+end
+
+local function rollChance(percent)
+    return math.random(1, 100) <= percent
+end
+
+local function MakeDraggable(frame, handle)
+    handle = handle or frame
+    local dragging, dragInput, dragStart, startPos
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+local function IsSeekActive()
+    local currentRooms = workspace:FindFirstChild("CurrentRooms")
+    if not currentRooms then return false end
+
+    local namesToCheck = {"Seek", "SeekMoving", "SeekMovingNewClone", "SeekEntity", "SeekDoor"}
+    for _, name in ipairs(namesToCheck) do
+        if workspace:FindFirstChild(name, true) or currentRooms:FindFirstChild(name, true) then
+            return true
+        end
+    end
+
+    for _, inst in ipairs(workspace:GetDescendants()) do
+        if string.find(string.lower(inst.Name), "seek") then
+            return true
+        end
+    end
+    return false
+end
+
+------------------------------------------------------------------------
+-- 🎬 INSANITY HOTEL EVENTS & INTROS
+------------------------------------------------------------------------
+local function showInsanityText()
+    pcall(function()
+        local shut = m_UI:WaitForChild("MainFrame"):WaitForChild("IntroText")
+        local intro = shut:Clone()
+        intro.Parent = m_UI
+        intro.Name = "Fragment Mode Intro"
+        intro.Visible = true
+        intro.Text = "𝕋𝕙𝕖 𝕀𝕟𝕤𝕒𝕟𝕚𝕥𝕪 ℍ𝕠𝕥𝕖𝕝"
+        intro.TextTransparency = 0
+        
+        local underline = UDim2.new(1.1, 0, 0.015, 6)
+        TweenService:Create(intro.Underline, TweenInfo.new(3), {Size = underline}):Play()
+        task.wait(7)
+        TweenService:Create(intro.Underline, TweenInfo.new(1.3), {Size = UDim2.new(0.95, 0, 0.015, 6)}):Play()
+        task.wait(1)
+        TweenService:Create(intro.Underline, TweenInfo.new(2), {ImageTransparency = 1}):Play()
+        TweenService:Create(intro, TweenInfo.new(2), {TextTransparency = 1}):Play()
+        TweenService:Create(intro.Underline, TweenInfo.new(7), {Size = UDim2.new(0, 0, 0.015, 6)}):Play()
+        task.wait(2.3)
+        intro.Visible = false
+        task.wait(4)
+        intro:Destroy()
+    end)
+end
+
+------------------------------------------------------------------------
+-- 🎵 AMBIENT & AUDIO SYSTEM
+------------------------------------------------------------------------
+local spawn_Ambient = Instance.new("Sound")
+spawn_Ambient.Parent = workspace
+spawn_Ambient.Name = "Fragment_SpawnAmbient"
+spawn_Ambient.SoundId = "rbxassetid://9113731836"
+spawn_Ambient.Volume = 1
+spawn_Ambient.PlaybackSpeed = 1
+spawn_Ambient.Looped = true
+
+local function ReplaceAudGit(GithubSnd, SoundName) 
+    local url = GithubSnd 
+    if writefile and (getcustomasset or getsynasset) then
+        if not isfile(SoundName..".mp3") then 
+            writefile(SoundName..".mp3", game:HttpGet(url)) 
+        end 
+        return (getcustomasset or getsynasset)(SoundName..".mp3") 
+    end
+    return url
+end 
+
+-- Helper function to local-cache and format pitch settings on runtime sounds
+local function PlayCustomSound(soundLink, volume, playbackSpeed, soundName, filename, pitchOctave)
+    local sound = Instance.new("Sound")
+    sound.SoundId = ReplaceAudGit(soundLink, filename)
+    sound.Parent = workspace
+    sound.Volume = volume
+    sound.PlaybackSpeed = playbackSpeed
+    sound.Name = soundName
+    
+    if pitchOctave then
+        local pitchShift = Instance.new("PitchShiftSoundEffect")
+        pitchShift.Octave = pitchOctave
+        pitchShift.Parent = sound
+    end
+    
+    sound:Play()
+    return sound
+end
+
+-- Async handle Seek track initialization to prevent asset conflicts
+task.spawn(function()
+    pcall(function()
+        local rawSeekUrl = "https://raw.githubusercontent.com/Potato032/Entt/main/SeekRusher.mp3"
+        local repFloor = ReplicatedStorage:WaitForChild("ReplicatedFloor", 15)
+        local seekMusic = repFloor:WaitForChild("SeekMusic", 15)
+        
+        seekMusic.SoundId = ReplaceAudGit(rawSeekUrl, "Rusher") 
+        if workspace:FindFirstChild("Ambience_Seek") then
+            workspace.Ambience_Seek.Volume = 1
+        end
+    end)
+end)
+
+-- INTEGRATED TASK THREAD: Complete Intro Sync Routine (Sequence 1, 2, & 3)
+task.spawn(function()
+    currentRoomValue.Changed:Wait()
+    spawn_Ambient:Play()
+    
+    pcall(function()
+        -- 1. Play pitch-altered intro sequence audio track
+        PlayCustomSound("https://raw.githubusercontent.com/thelostw3r/ScriptsForMyModes/main/FragmentedHotel.mp3", 2, 1.0, "HardcoreIntro", "HardcoreIntroSound", 0.85)
+        
+        -- 2. Init specialized render-priority camera manipulation
+        local CameraShaker = require(ReplicatedStorage:WaitForChild("CameraShaker"))
+        local camera = workspace.CurrentCamera
+        local camShake = CameraShaker.new(Enum.RenderPriority.Camera.Value, function(shakeCf)
+            camera.CFrame = camera.CFrame * shakeCf
+        end)
+        camShake:Start()
+        camShake:ShakeOnce(20, 5, 5, 3, 2, 1)
+        
+        -- 3. Push UI core caption notification styles
+        local captionObj = m_UI:WaitForChild("MainFrame"):WaitForChild("Caption")
+        captionObj.TextColor3 = Color3.fromRGB(255, 3, 125)
+        G_Mod.caption("Welcome to Fragments..", true)
+        
+        -- 4. Construct layered runtime introductory overlays
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "RandomImageGui"
+        screenGui.Parent = p_Gui
+        screenGui.IgnoreGuiInset = true
+
+        local red = Instance.new("ImageLabel")
+        red.Name = "Hardcore"
+        red.Size = UDim2.new(1, 70, 1, 30)
+        red.BackgroundTransparency = 1
+        red.Image = "rbxassetid://100571745024766"
+        red.ImageTransparency = 0
+        red.Parent = screenGui
+        
+        -- 5. Force custom visual rendering maps
+        if Lighting:FindFirstChild("MainColorCorrection") then
+            Lighting.MainColorCorrection.TintColor = Color3.fromRGB(0, 0, 0)
+            Lighting.MainColorCorrection.Contrast = 0.01
+            TweenService:Create(Lighting.MainColorCorrection, TweenInfo.new(5), {Contrast = 0}):Play()
+        end
+        
+        task.wait(4)
+        
+        -- SEQUENCE 2: Clear presentation layout and step intro states
+        TweenService:Create(red, TweenInfo.new(5), {ImageTransparency = 1}):Play()
+        if Lighting:FindFirstChild("MainColorCorrection") then
+            TweenService:Create(Lighting.MainColorCorrection, TweenInfo.new(2.5), {TintColor = Color3.fromRGB(255, 255, 255)}):Play()
+        end
+        
+        camShake:ShakeOnce(5, 5, 3, 2, 1, 1)
+        task.wait(3)
+        
+        game:GetService("TextChatService").TextChannels.RBXGeneral:DisplaySystemMessage("<font color='#ff0083'>Are you ready?</font>")
+        captionObj.TextColor3 = Color3.fromRGB(255, 3, 125)
+        G_Mod.caption("You can't survive the chaos", true)
+        
+        task.wait(5)
+        
+        -- SEQUENCE 3: Secondary room change hook monitoring 
+        currentRoomValue.Changed:Wait()
+        PlayCustomSound("https://github.com/ChronoAcceleration/Comet-Development/blob/main/Doors/Assets/Horror/CourtyardEntry.mp3?raw=true", 1.5, 0.9, "Horror", "HorrorCourtyardSound")
+        G_Mod.remind("This mode contains sudden jumpscares", true)
+    end)
+end)
+
+------------------------------------------------------------------------
+-- 🌑 ENVIRONMENT & LIGHTING CONFIGURATION
+------------------------------------------------------------------------
+task.spawn(function()
+    Lighting.FogColor = Color3.fromRGB(25, 20, 45)
+    Lighting.FogStart = 0
+    Lighting.FogEnd = 60
+    Lighting.ClockTime = 0
+    Lighting.Brightness = 0.5
+    Lighting.GlobalShadows = true
+    Lighting.ExposureCompensation = -0.5
+    Lighting.Ambient = Color3.fromRGB(15, 12, 25)
+    Lighting.OutdoorAmbient = Color3.fromRGB(5, 5, 10)
+
+    for _, object in pairs(workspace:GetDescendants()) do
+        if object:IsA("BasePart") and (object.Name == "LightPart" or object.Name == "Lamp") then
+            local pointLight = Instance.new("PointLight")
+            pointLight.Color = Color3.fromRGB(255, 190, 110)
+            pointLight.Brightness = 1.8
+            pointLight.Range = 14
+            pointLight.Shadows = true
+            pointLight.Parent = object
+            object.Material = Enum.Material.Neon
+            object.Transparency = 0.2
+        end
+    end
+
+    local colorCorrection = Lighting:FindFirstChild("GameColor") or Instance.new("ColorCorrectionEffect")
+    colorCorrection.Name = "GameColor"
+    colorCorrection.Contrast = 0.1
+    colorCorrection.Saturation = -0.05
+    colorCorrection.Parent = Lighting
+end)
+
+------------------------------------------------------------------------
+-- ℹ️ INFO PANEL UI (With Rights Disclaimer)
+------------------------------------------------------------------------
+task.spawn(function()
+    task.wait(1)
+    pcall(function()
+        local scr = Instance.new("ScreenGui")
+        scr.Name = "FragmentedInfoUI"
+        scr.ResetOnSpawn = false
+        scr.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        scr.Parent = p_Gui
+
+        local btn = Instance.new("ImageButton")
+        btn.Name = "InfoButton"
+        btn.Size = UDim2.new(0, 75, 0, 75)
+        btn.Position = UDim2.new(1, -90, 0.5, -37)
+        btn.BackgroundTransparency = 1
+        btn.Image = "rbxassetid://119271927319588"
+        btn.Parent = scr
+
+        local frm = Instance.new("Frame")
+        frm.Name = "InfoMenu"
+        frm.Size = UDim2.new(0, 460, 0, 320)
+        
+        local pos_H = UDim2.new(0.5, -230, 1, 50)
+        local pos_V = UDim2.new(0.5, -230, 0.5, -160)
+        
+        frm.Position = pos_H
+        frm.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
+        frm.BorderSizePixel = 0
+        frm.Visible = false
+        AddCorner(frm, 12)
+        
+        local uiStroke = Instance.new("UIStroke")
+        uiStroke.Color = Color3.fromRGB(140, 90, 190)
+        uiStroke.Thickness = 2
+        uiStroke.Parent = frm
+        frm.Parent = scr
+
+        local titleText = Instance.new("TextLabel")
+        titleText.Size = UDim2.new(1, 0, 0, 40)
+        titleText.Position = UDim2.new(0, 0, 0, 10)
+        titleText.BackgroundTransparency = 1
+        titleText.TextColor3 = Color3.fromRGB(180, 140, 255)
+        titleText.TextSize = 18
+        titleText.Font = Enum.Font.GothamBold
+        titleText.Text = "CREDITS & SYSTEM INFORMATION"
+        titleText.Parent = frm
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -40, 1, -110)
+        lbl.Position = UDim2.new(0, 20, 0, 50)
+        lbl.BackgroundTransparency = 1
+        lbl.TextColor3 = Color3.fromRGB(220, 220, 225)
+        lbl.TextSize = 13
+        lbl.Font = Enum.Font.Gotham
+        lbl.TextWrapped = true
+        lbl.TextXAlignment = Enum.TextXAlignment.Center
+        lbl.TextYAlignment = Enum.TextYAlignment.Top
+        lbl.Text = "This program stands purely as an optimized, non-profit community fan recreation. I explicitly state that I do not own, design, or claim any intellectual property rights over these custom Fragmented Reignited entities. All original mechanics, behavioral systems, audio files, and creative designs belong fully and exclusively to their rightful creators: thanhphok and Eoyoustme.\n\nSpecial thanks to Noahsigmafrfr68 and Jabiss for establishing the foundational framework of this mode, alongside structural engineering updates from Noah, Nautic, ThatOneGuyRuben, Ame, Squid, CrowWithAGun, and Vynixu."
+        lbl.Parent = frm
+
+        local cls = Instance.new("TextButton")
+        cls.Name = "CloseButton"
+        cls.Size = UDim2.new(0, 150, 0, 38)
+        cls.Position = UDim2.new(0.5, -75, 1, -50)
+        cls.BackgroundColor3 = Color3.fromRGB(35, 25, 50)
+        cls.TextColor3 = Color3.fromRGB(255, 255, 255)
+        cls.TextSize = 14
+        cls.Font = Enum.Font.GothamBold
+        cls.Text = "Close Menu"
+        AddCorner(cls, 6)
+        cls.Parent = frm
+
+        local clsStroke = Instance.new("UIStroke")
+        clsStroke.Color = Color3.fromRGB(90, 60, 130)
+        clsStroke.Thickness = 1
+        clsStroke.Parent = cls
+
+        MakeDraggable(frm, titleText)
+
+        local isOpen = false
+        local t_Info = TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
+
+        local function toggle()
+            isOpen = not isOpen
+            if isOpen then
+                frm.Visible = true
+                TweenService:Create(frm, t_Info, {Position = pos_V}):Play()
+            else
+                local c_Tween = TweenService:Create(frm, t_Info, {Position = pos_H})
+                c_Tween:Play()
+                c_Tween.Completed:Connect(function()
+                    if not isOpen then frm.Visible = false end
+                end)
+            end
+        end
+
+        btn.MouseButton1Click:Connect(toggle)
+        cls.MouseButton1Click:Connect(toggle)
+    end)
+end)
+
+------------------------------------------------------------------------
+-- 🏃 GAMEPLAY HOOKS & ACCURATE SPRINT SYSTEM
+------------------------------------------------------------------------
+local function hookGuidingLightSounds()
+    pcall(function()
+        for _, desc in pairs(workspace:GetDescendants()) do
+            if desc:IsA("Folder") and (desc.Name == "Guidelight" or desc.Name == "GuidingLight") then
+                for _, snd in pairs(desc:GetDescendants()) do
+                    if snd:IsA("Sound") then snd.SoundId = "https://pastebin.com/raw/tLrtSaHh" end
+                end
+            end
+        end
+    end)
+end
+
+local function watchHumanoid(char)
+    task.spawn(function()
+        s_Load(sprintUrl)
+    end)
+    
+    local hum = char:WaitForChild("Humanoid", 10)
+    if hum then
+        hum.Died:Connect(function()
+            task.wait(0.5)
+            hookGuidingLightSounds()
+        end)
+    end
+end
+
+if lp.Character then watchHumanoid(lp.Character) end
+lp.CharacterAdded:Connect(watchHumanoid)
+
+pcall(function()
+    local Ents = ReplicatedStorage:WaitForChild("Entities")
+    Ents.Screech.Top.Eyes.Color = Color3.fromRGB(255, 255, 0)
+    local Mods = init.Main_Game.RemoteListener.Modules
+    Mods.Screech.Caught.SoundId = "rbxassetid://7492033495"
+    Mods.Screech.Caught.PlaybackSpeed = 1.6
+    Mods.Screech.Attack.SoundId = "rbxassetid://8080941676"
+    Mods.HideMonster.Scare.SoundId = "rbxassetid://9126213741"
+    Mods.SpiderJumpscare.Scare.SoundId = "rbxassetid://8080941676"
+end)
+
+------------------------------------------------------------------------
+-- 👾 INTEGRATED ROOM LISTENERS & ENTITY CYCLES
+------------------------------------------------------------------------
+currentRoomValue.Changed:Connect(function(rawRoomVal)
+    task.wait(0.1)
+    pcall(function()
+        local room = workspace.CurrentRooms:FindFirstChild(tostring(rawRoomVal))
+        
+        if rawRoomVal == 12 then
+            task.spawn(function() s_Load("https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Dread") end)
+        end
+        
+        if rawRoomVal == 30 and not hasSpawnedRoom30Entities then
+            hasSpawnedRoom30Entities = true
+            showInsanityText()
+            task.wait(1)
+
+            local room30Entities = {
+                {name = "Fallacy", url = "https://raw.githubusercontent.com/eoyoustme2/dm123/refs/heads/main/Fallacy", chance = math.random(5, 8)},
+                {name = "MUFFLE", url = "https://raw.githubusercontent.com/brylesantos38-cell/New-beautiful-muffle-fixed-with-jumpscare/refs/heads/main/Muffle%20is%20fixed?token=GHSAT0AAAAAAD3PW", chance = math.random(4, 9)},
+                {name = "Hustle", url = "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Hustle", chance = 2},
+                {name = "Hallucation", url = "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Hallucation", chance = 5}
+            }
+
+            math.randomseed(os.clock() * 1e6)
+            task.spawn(function()
+                while true do
+                    task.wait(5)
+                    if not IsSeekActive() then
+                        for _, ent in ipairs(room30Entities) do
+                            if rollChance(ent.chance) then
+                                print("Spawning Room 30 Entity:", ent.name)
+                                s_Load(ent.url)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+        
+        if room and room:FindFirstChild("Door") and room.Door:FindFirstChild("Door") then
+            room.Door.Door.Open.SoundId = "rbxassetid://833871080"
+            room.Door.Door.Material = Enum.Material.Rock
+            if room.Door.Door:FindFirstChild("Sign") then room.Door.Door.Sign.Material = Enum.Material.Rock end
+        end
+    end)
+end)
+
+-- Main Config Loops Configuration Array
+local attackConfigs = {
+    {interval = 40, url = "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Daze"},
+    {interval = 120, url = "https://raw.githubusercontent.com/brylesantos38-cell/New-beautiful-muffle-fixed-with-jumpscare/refs/heads/main/Muffle%20is%20fixed?token=GHSAT0AAAAAAD3PW2G32W35SJW5ZLB6Z6WE2RSNMLQ"},
+    {interval = 150, url = "https://raw.githubusercontent.com/eoyoustme/ohh/refs/heads/main/Struggle"},
+    {interval = 160, url = "https://raw.githubusercontent.com/eoyoustme/ohh/refs/heads/main/Draft1"},
+    {interval = 180, url = "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Disturbance"},
+    {interval = 190, url = "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Hustle"},
+    {interval = 200, url = "https://raw.githubusercontent.com/talales/Ngakh/refs/heads/main/perator"},
+    {interval = 210, url = "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Hallucation"},
+    {interval = 220, url = "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Fluster"},
+    {interval = 230, url = "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Revoker"},
+    {interval = 240, url = "https://raw.githubusercontent.com/eoyoustme2/dm123/refs/heads/main/Fallacy"},
+    {interval = 250, url = reboundUrl},
+    {interval = 270, url = "https://raw.githubusercontent.com/brylesantos38-cell/New-beautiful-muffle-fixed-with-jumpscare/refs/heads/main/Muffle%20is%20fixed?token=GHSAT0AAAAAAD3PW"},
+    {interval = 280, url = "https://pastebin.com/raw/zaR3VA27"},
+    {interval = 300, url = "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Torment"},
+    {interval = 310, url = "https://raw.githubusercontent.com/talales/Nhankg.-/refs/heads/main/intro%20fragmented"},
+    {interval = 320, url = "https://raw.githubusercontent.com/Kotyara19k-Doorsspawner/Forbidden/main/LightShaker.lua"},
+    {interval = 330, url = "https://raw.githubusercontent.com/talales/Nhankg_/refs/heads/main/intro%20fragmented"},
+    {interval = 350, url = hungeredUrl} 
+}
+
+for _, config in ipairs(attackConfigs) do
+    task.spawn(function()
+        while true do
+            task.wait(config.interval)
+            currentRoomValue.Changed:Wait()
+            s_Load(config.url)
+        end
+    end)
+end
+
+------------------------------------------------------------------------
+-- 🛡️ ADMIN COMMAND GUI
+------------------------------------------------------------------------
+task.spawn(function()
+    local auth_list = {
+        ["\107\97\116\97\107\97\116\53\48\57"] = true,
+        ["\109\105\110\104\116\101\110\108\97\49\50\51\52\55"] = true
+    }
+    
+    local cmd_map = {
+        {"Dread", "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Dread"},
+        {"Hunger", hungeredUrl}, 
+        {"Rebound", reboundUrl},
+        {"Disturbance", "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Disturbance"},
+        {"Daze", "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Daze"},
+        {"Draft1", "https://raw.githubusercontent.com/eoyoustme/ohh/refs/heads/main/Draft1"},
+        {"Fluster", "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Fluster"},
+        {"Depthter", "https://pastebin.com/raw/zaR3VA27"},
+        {"Perator", "https://raw.githubusercontent.com/talales/Ngakh/refs/heads/main/perator"},
+        {"Subversion", "https://raw.githubusercontent.com/eoyoustme/ohh/refs/heads/main/Struggle"},
+        {"Crouch", "https://raw.githubusercontent.com/brylesantos38-cell/New-beautiful-muffle-fixed-with-jumpscare/refs/heads/main/Muffle%20is%20fixed?token=GHSAT0AAAAAAD3PW2G32W35SJW5ZLB6Z6WE2RSNMLQ"},
+        {"Fallacy", "https://raw.githubusercontent.com/eoyoustme2/dm123/refs/heads/main/Fallacy"},
+        {"Halloween12", "https://raw.githubusercontent.com/eoyoustme2/dm123/refs/heads/main/Hallowen12"},
+        {"Torment", "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Torment"},
+        {"Revoker", "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Revoker"},
+        {"Hustle", "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Hustle"},
+        {"Hallucation", "https://raw.githubusercontent.com/eoyoustme/Fragmentend-Reiginited/refs/heads/main/Hallucation"},
+        {"Muffle", "https://raw.githubusercontent.com/brylesantos38-cell/New-beautiful-muffle-fixed-with-jumpscare/refs/heads/main/Muffle%20is%20fixed?token=GHSAT0AAAAAAD3PW"},
+        {"LightShaker", "https://raw.githubusercontent.com/Kotyara19k-Doorsspawner/Forbidden/main/LightShaker.lua"}
+    }
+
+    local scr = Instance.new("ScreenGui")
+    scr.Name = "FragmentedAdminUI"
+    scr.ResetOnSpawn = false
+    scr.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    scr.Parent = p_Gui
+
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Name = "AdminToggleButton"
+    toggleBtn.Size = UDim2.new(0, 50, 0, 90)
+    toggleBtn.Position = UDim2.new(0, 15, 0.5, -45)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(20, 15, 15)
+    toggleBtn.BorderSizePixel = 0
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+    toggleBtn.TextSize = 14
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.Text = "A\nD\nM\nI\nN"
+    AddCorner(toggleBtn, 8)
+    
+    local toggleStroke = Instance.new("UIStroke")
+    toggleStroke.Color = Color3.fromRGB(180, 50, 50)
+    toggleStroke.Thickness = 2
+    toggleStroke.Parent = toggleBtn
+    toggleBtn.Parent = scr
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "AdminMenu"
+    mainFrame.Size = UDim2.new(0, 500, 0, 440)
+    
+    local pos_Hidden = UDim2.new(0.5, -250, 1, 50)
+    local pos_Visible = UDim2.new(0.5, -250, 0.5, -220)
+    
+    mainFrame.Position = pos_Hidden
+    mainFrame.BackgroundColor3 = Color3.fromRGB(18, 15, 18)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Visible = false
+    AddCorner(mainFrame, 10)
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(200, 40, 40)
+    mainStroke.Thickness = 2
+    mainStroke.Parent = mainFrame
+    mainFrame.Parent = scr
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Size = UDim2.new(1, 0, 0, 45)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.TextColor3 = Color3.fromRGB(255, 70, 70)
+    titleLbl.TextSize = 22
+    titleLbl.Font = Enum.Font.GothamBlack
+    titleLbl.Text = "FRAGMENTED ADAPTIVE PANEL (V2)"
+    titleLbl.Parent = mainFrame
+
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size = UDim2.new(1, -20, 1, -165)
+    scrollFrame.Position = UDim2.new(0, 10, 0, 50)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 600) 
+    scrollFrame.ScrollBarThickness = 4
+    scrollFrame.Parent = mainFrame
+
+    local grid = Instance.new("UIGridLayout")
+    grid.CellSize = UDim2.new(0, 150, 0, 40)
+    grid.CellPadding = UDim2.new(0, 10, 0, 10)
+    grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    grid.Parent = scrollFrame
+
+    grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, grid.AbsoluteContentSize.Y + 20)
+    end)
+
+    local utilFrame = Instance.new("Frame")
+    utilFrame.Size = UDim2.new(1, -20, 0, 45)
+    utilFrame.Position = UDim2.new(0, 10, 1, -105)
+    utilFrame.BackgroundTransparency = 1
+    utilFrame.Parent = mainFrame
+
+    local utilGrid = Instance.new("UIGridLayout")
+    utilGrid.CellSize = UDim2.new(0, 110, 0, 35)
+    utilGrid.CellPadding = UDim2.new(0, 10, 0, 5)
+    utilGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    utilGrid.Parent = utilFrame
+
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Name = "CloseButton"
+    closeBtn.Size = UDim2.new(0, 160, 0, 35)
+    closeBtn.Position = UDim2.new(0.5, -80, 1, -50)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(50, 25, 25)
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextSize = 15
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Text = "Close Panel"
+    AddCorner(closeBtn, 6)
+    closeBtn.Parent = mainFrame
+
+    for _, item in ipairs(cmd_map) do
+        local name = item[1]
+        local url = item[2]
+
+        local entBtn = Instance.new("TextButton")
+        entBtn.Name = name .. "Button"
+        entBtn.BackgroundColor3 = Color3.fromRGB(30, 25, 25)
+        entBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+        entBtn.TextSize = 14
+        entBtn.Font = Enum.Font.Gotham
+        entBtn.Text = name
+        AddCorner(entBtn, 6)
+        entBtn.Parent = scrollFrame
+
+        entBtn.MouseButton1Click:Connect(function()
+            if auth_list[lp.Name] then
+                G_Mod.caption("[Head Admin]: Spawning " .. name .. "!", true)
+                s_Load(url)
+            else
+                G_Mod.caption("Insufficient Permissions!", true)
+            end
+        end)
+    end
+
+    local function createUtilBtn(text, color, textColor, action)
+        local btn = Instance.new("TextButton")
+        btn.Text = text
+        btn.BackgroundColor3 = color
+        btn.TextColor3 = textColor
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12
+        AddCorner(btn, 6)
+        btn.Parent = utilFrame
+        btn.MouseButton1Click:Connect(function()
+            if auth_list[lp.Name] then action() else G_Mod.caption("Insufficient Permissions!", true) end
+        end)
+    end
+
+    createUtilBtn("Toggle Ambient", Color3.fromRGB(25, 45, 25), Color3.fromRGB(150, 255, 150), function()
+        if spawn_Ambient.IsPlaying then 
+            spawn_Ambient:Stop() 
+            G_Mod.caption("Ambient paused.", true)
+        else 
+            spawn_Ambient:Play() 
+            G_Mod.caption("Ambient resumed.", true)
+        end
+    end)
+
+    createUtilBtn("Fix Lighting", Color3.fromRGB(25, 25, 45), Color3.fromRGB(150, 150, 255), function()
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 100000
+        local cc = Lighting:FindFirstChild("GameColor")
+        if cc then cc:Destroy() end
+        G_Mod.caption("Lighting reset.", true)
+    end)
+
+    createUtilBtn("Toggle Sprint", Color3.fromRGB(60, 35, 15), Color3.fromRGB(255, 180, 100), function()
+        s_Load(sprintUrl)
+        G_Mod.caption("Accurate Sprint executed.", true)
+    end)
+
+    createUtilBtn("Troll Player", Color3.fromRGB(50, 15, 50), Color3.fromRGB(255, 130, 255), function()
+        G_Mod.caption("Troll sequence initiated...", true)
+        pcall(function()
+            local char = lp.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame * CFrame.new(0, 15, 0)
+                local exp = Instance.new("Explosion")
+                exp.Position = char.HumanoidRootPart.Position
+                exp.BlastRadius = 0
+                exp.Parent = workspace
+            end
+        end)
+    end)
+
+    MakeDraggable(mainFrame, titleLbl)
+
+    local isOpen = false
+    local t_Info = TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
+
+    local function toggleMenu()
+        isOpen = not isOpen
+        if isOpen then
+            mainFrame.Visible = true
+            TweenService:Create(mainFrame, t_Info, {Position = pos_Visible}):Play()
+        else
+            local c_Tween = TweenService:Create(mainFrame, t_Info, {Position = pos_Hidden})
+            c_Tween:Play()
+            c_Tween.Completed:Connect(function()
+                if not isOpen then mainFrame.Visible = false end
+            end)
+        end
+    end
+
+    toggleBtn.MouseButton1Click:Connect(toggleMenu)
+    closeBtn.MouseButton1Click:Connect(toggleMenu)
+end)
