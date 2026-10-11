@@ -29,7 +29,7 @@ local G_Mod = require(init:WaitForChild("Main_Game"))
 
 -- Updated Entity Repository Connection Endpoints
 local reboundUrl = "https://raw.githubusercontent.com/brylesantos38-cell/Myownreboundregnited/refs/heads/main/ObfuscatedNon"
-local hungeredUrl = "https://raw.githubusercontent.com/brylesantos38-cell/Myownreboundregnited/refs/heads/main/HungeredMyownRegnited"
+local hungeredUrl = "https://raw.githubusercontent.com/brylesantos38-cell/LatestV4Fragmented/refs/heads/main/HUNGEREDFMV4"
 local sprintUrl = "https://raw.githubusercontent.com/brylesantos38-cell/Pretty-accurate-fragmented-mode-Sprint-use-it-if-you-must.-/refs/heads/main/Use%20it%20if%20want!"
 
 local currentRoomValue = ReplicatedStorage:WaitForChild("GameData"):WaitForChild("LatestRoom")
